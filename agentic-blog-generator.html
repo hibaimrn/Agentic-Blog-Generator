@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Longform Desk</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #f1eef6;
+    --plum: #38264b;
+    --plum-soft: #5b4477;
+    --lav: #e3dcef;
+    --lav-line: #cfc4e2;
+    --gold: #c8973f;
+    --gold-soft: #f6ead2;
+    --rose: #c46a6a;
+    --rose-soft: #f7e3e3;
+    --white: #ffffff;
+    --dim: #7a6f8c;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--plum); font-family: var(--sans); min-height: 100vh; padding: 0 0 60px; }
+
+  /* masthead */
+  .masthead { border-bottom: 1px solid var(--lav-line); background: var(--white); padding: 22px 28px 18px; }
+  .masthead-inner { max-width: 1240px; margin: 0 auto; display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .masthead h1 { font-family: var(--serif); font-size: 26px; font-weight: 700; font-style: italic; }
+  .masthead h1 em { color: var(--gold); font-style: italic; }
+  .masthead .sub { font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: 0.08em; }
+
+  .shell { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+
+  /* commission slip: horizontal config */
+  .slip { background: var(--white); border: 1px solid var(--lav-line); border-top: 4px solid var(--plum); margin-top: 26px; padding: 20px 22px 16px; }
+  .slip h2 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); margin-bottom: 14px; }
+  .slip-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .slip-grid { grid-template-columns: 1fr; } }
+
+  label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--plum-soft); margin-bottom: 5px; }
+  input[type="password"], input[type="text"], textarea, select {
+    width: 100%; background: var(--bg); color: var(--plum);
+    border: 1px solid var(--lav-line); border-radius: 4px;
+    padding: 9px 11px; font-size: 14px; font-family: var(--sans);
+  }
+  textarea { resize: vertical; min-height: 64px; }
+  input:focus, textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .field { margin-bottom: 12px; }
+  .pair { display: flex; gap: 10px; }
+  .pair .field { flex: 1; }
+  .hint { font-size: 11px; color: var(--dim); margin-top: 4px; line-height: 1.5; text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .check { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--plum); margin-bottom: 10px; cursor: pointer; }
+  .check input { width: 15px; height: 15px; accent-color: var(--plum); }
+
+  button { cursor: pointer; border: none; border-radius: 4px; font-size: 14px; font-weight: 600; padding: 11px 18px; font-family: var(--sans); }
+  .btn-run { width: 100%; background: var(--plum); color: var(--white); letter-spacing: 0.03em; }
+  .btn-run:hover:not(:disabled) { background: var(--plum-soft); }
+  .btn-run:disabled { background: var(--lav); color: var(--dim); cursor: not-allowed; }
+  .btn-stop { width: 100%; background: var(--white); color: var(--rose); border: 1px solid var(--rose); margin-top: 8px; display: none; }
+
+  /* workspace: margin notes + article */
+  .workspace { display: grid; grid-template-columns: 340px 1fr; gap: 0; margin-top: 26px; border: 1px solid var(--lav-line); background: var(--white); }
+  @media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } }
+
+  .margin-col { border-right: 1px solid var(--lav-line); background: var(--bg); display: flex; flex-direction: column; }
+  @media (max-width: 900px) { .margin-col { border-right: none; border-bottom: 1px solid var(--lav-line); } }
+  .margin-head { padding: 12px 16px; border-bottom: 1px solid var(--lav-line); font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .margin-head .stats b { color: var(--gold); font-weight: 700; }
+  .margin { padding: 14px 16px; overflow-y: auto; max-height: 720px; font-size: 12.5px; line-height: 1.6; }
+
+  .mn { margin-bottom: 14px; padding-left: 12px; border-left: 3px solid var(--lav-line); word-break: break-word; white-space: pre-wrap; }
+  .mn .kind { display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); margin-bottom: 3px; }
+  .mn.think { border-left-color: var(--plum-soft); font-family: var(--serif); font-style: italic; color: var(--plum-soft); }
+  .mn.tool { border-left-color: var(--gold); }
+  .mn.tool .kind { color: var(--gold); }
+  .mn.result { color: var(--dim); }
+  .mn.critic { border-left-color: var(--rose); background: var(--rose-soft); padding: 8px 10px 8px 12px; border-radius: 0 4px 4px 0; }
+  .mn.critic .kind { color: var(--rose); }
+  .mn.final { border-left-color: var(--gold); background: var(--gold-soft); padding: 8px 10px 8px 12px; border-radius: 0 4px 4px 0; }
+  .mn.err { border-left-color: var(--rose); color: var(--rose); }
+  .mn.running::after { content: " ..."; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  @media (prefers-reduced-motion: reduce) { .mn.running::after { animation: none; } }
+
+  /* article preview: Medium-like */
+  .article-col { display: flex; flex-direction: column; }
+  .article-head { padding: 12px 20px; border-bottom: 1px solid var(--lav-line); display: flex; justify-content: space-between; align-items: center; }
+  .article-head .label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+  .article-actions { display: flex; gap: 8px; }
+  .article-actions button { background: var(--white); border: 1px solid var(--lav-line); color: var(--plum-soft); font-size: 12px; padding: 6px 12px; }
+  .article-actions button:hover { border-color: var(--plum); color: var(--plum); }
+
+  .article { padding: 44px 56px 64px; max-width: 760px; margin: 0 auto; width: 100%; }
+  @media (max-width: 700px) { .article { padding: 28px 20px 44px; } }
+  .empty { color: var(--dim); font-size: 14px; text-align: center; padding: 110px 20px; font-family: var(--serif); font-style: italic; }
+
+  .a-title { font-family: var(--serif); font-size: 40px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 10px; color: #241634; }
+  .a-subtitle { font-family: var(--serif); font-size: 20px; line-height: 1.4; color: var(--dim); margin-bottom: 18px; }
+  .a-byline { display: flex; align-items: center; gap: 10px; padding: 14px 0; border-top: 1px solid var(--lav-line); border-bottom: 1px solid var(--lav-line); margin-bottom: 30px; font-size: 13px; color: var(--dim); }
+  .a-byline .av { width: 36px; height: 36px; border-radius: 50%; background: var(--plum); color: var(--gold); display: flex; align-items: center; justify-content: center; font-family: var(--serif); font-style: italic; font-size: 16px; }
+  .a-byline b { color: var(--plum); font-weight: 600; }
+
+  .a-body { font-family: var(--serif); font-size: 18px; line-height: 1.8; color: #2e2440; }
+  .a-body h2 { font-family: var(--serif); font-size: 26px; margin: 38px 0 12px; letter-spacing: -0.01em; color: #241634; }
+  .a-body h3 { font-size: 21px; margin: 28px 0 10px; }
+  .a-body p { margin-bottom: 20px; }
+  .a-body ul, .a-body ol { margin: 0 0 20px 28px; }
+  .a-body li { margin-bottom: 8px; }
+  .a-body a { color: #6b4fa3; }
+  .a-body blockquote { border-left: 3px solid var(--gold); padding-left: 18px; font-style: italic; color: var(--plum-soft); margin: 0 0 20px; font-size: 20px; }
+  .a-body code { font-family: var(--mono); font-size: 15px; background: var(--lav); padding: 1px 6px; border-radius: 4px; }
+  .a-body pre { background: #2a1e3a; color: #e9e2f5; padding: 18px; border-radius: 6px; overflow-x: auto; margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
+  .a-body pre code { background: none; color: inherit; padding: 0; }
+  .a-body hr { border: none; text-align: center; margin: 34px 0; }
+  .a-body hr::after { content: "\00b7 \00b7 \00b7"; font-size: 22px; letter-spacing: 14px; color: var(--dim); }
+  .a-body img { max-width: 100%; }
+
+  .a-tags { margin-top: 36px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .a-tags span { background: var(--lav); color: var(--plum-soft); font-size: 13px; padding: 6px 14px; border-radius: 999px; }
+  .drafting-tag { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); border: 1px dashed var(--gold); padding: 3px 10px; border-radius: 999px; margin-bottom: 18px; }
+</style>
+</head>
+<body>
+  <div class="masthead">
+    <div class="masthead-inner">
+      <h1>The Longform <em>Desk</em></h1>
+      <span class="sub">an autonomous agent that outlines, researches, drafts section by section, and revises for Medium</span>
+    </div>
+  </div>
+
+  <div class="shell">
+    <section class="slip">
+      <h2>Commission slip</h2>
+      <div class="slip-grid">
+        <div>
+          <div class="field">
+            <label for="topic">Article brief</label>
+            <textarea id="topic" placeholder="e.g. A practical guide to evaluating RAG pipelines, aimed at teams shipping their first production system"></textarea>
+          </div>
+          <div class="field">
+            <label for="apiKey">OpenAI API key</label>
+            <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off">
+            <div class="hint">Sent only to api.openai.com from your browser. Not stored. Cleared on refresh.</div>
+          </div>
+        </div>
+        <div>
+          <div class="field">
+            <label for="reader">Target reader (optional)</label>
+            <input type="text" id="reader" placeholder="e.g. ML engineers new to RAG">
+          </div>
+          <div class="pair">
+            <div class="field">
+              <label for="style">Style</label>
+              <select id="style">
+                <option value="practical how-to guide with concrete examples" selected>How-to guide</option>
+                <option value="opinion essay with a strong thesis">Opinion essay</option>
+                <option value="technical deep dive">Deep dive</option>
+                <option value="listicle with substantive entries">Listicle</option>
+                <option value="personal narrative that lands on a lesson">Personal narrative</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="length">Length</label>
+              <select id="length">
+                <option value="800">~800 words</option>
+                <option value="1500" selected>~1,500 words</option>
+                <option value="2500">~2,500 words</option>
+              </select>
+            </div>
+          </div>
+          <div class="pair">
+            <div class="field">
+              <label for="model">Model</label>
+              <select id="model">
+                <option value="gpt-4o-mini">gpt-4o-mini</option>
+                <option value="gpt-4o" selected>gpt-4o</option>
+                <option value="gpt-4.1">gpt-4.1</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="maxSteps">Step budget</label>
+              <select id="maxSteps">
+                <option value="12">12</option>
+                <option value="18" selected>18</option>
+                <option value="26">26</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="field">
+            <label for="minScore">Editor bar</label>
+            <select id="minScore">
+              <option value="7">7/10 (fast)</option>
+              <option value="8" selected>8/10</option>
+              <option value="9">9/10 (picky)</option>
+            </select>
+          </div>
+          <label class="check"><input type="checkbox" id="useSearch" checked> Allow web search for facts and sources</label>
+          <button class="btn-run" id="runBtn">Commission the article</button>
+          <button class="btn-stop" id="stopBtn">Stop</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="workspace">
+      <div class="margin-col">
+        <div class="margin-head">
+          <span>Margin notes</span>
+          <span class="stats">step <b id="stepCount">0</b> &nbsp;sections <b id="sectionCount">0</b> &nbsp;reviews <b id="critiqueCount">0</b></span>
+        </div>
+        <div class="margin" id="margin">
+          <div class="mn think"><span class="kind">idle</span>The desk is quiet. Commission an article and the agent will outline, research, draft each section live onto the page, then send the whole piece to its editor before publishing.</div>
+        </div>
+      </div>
+
+      <div class="article-col">
+        <div class="article-head">
+          <span class="label">Article <span id="wordmeta"></span></span>
+          <div class="article-actions">
+            <button id="copyBtn">Copy markdown</button>
+            <button id="dlBtn">Download .md</button>
+          </div>
+        </div>
+        <div class="article" id="article">
+          <div class="empty">Your article will take shape here, section by section, as the agent writes.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const marginEl = $("margin"), articleEl = $("article");
+  const runBtn = $("runBtn"), stopBtn = $("stopBtn");
+  let controller = null;
+  let counts = { step: 0, section: 0, critique: 0 };
+
+  // article state
+  let art = null;
+  function freshArt() { return { title: "", subtitle: "", sections: [], tags: [], published: false }; }
+
+  function bump(k) { counts[k]++; $(k + "Count").textContent = counts[k]; }
+  function resetCounts() { counts = { step: 0, section: 0, critique: 0 }; ["step","section","critique"].forEach(k => $(k + "Count").textContent = "0"); }
+
+  function mn(kind, cls, text, running = false) {
+    const div = document.createElement("div");
+    div.className = "mn " + cls + (running ? " running" : "");
+    const k = document.createElement("span");
+    k.className = "kind"; k.textContent = kind;
+    div.appendChild(k);
+    div.appendChild(document.createTextNode(text));
+    marginEl.appendChild(div);
+    marginEl.scrollTop = marginEl.scrollHeight;
+    return div;
+  }
+  function settle(div) { div.classList.remove("running"); }
+
+  // ---------- article assembly & render ----------
+  function articleMarkdown() {
+    if (!art) return "";
+    let md = "# " + (art.title || "Untitled") + "\n\n";
+    if (art.subtitle) md += "*" + art.subtitle + "*\n\n";
+    for (const s of art.sections) {
+      if (s.heading) md += "## " + s.heading + "\n\n";
+      md += s.md + "\n\n";
+    }
+    if (art.tags.length) md += "---\nTags: " + art.tags.join(", ") + "\n";
+    return md;
+  }
+  function wordCount() {
+    return art ? art.sections.map(s => s.md.split(/\s+/).filter(Boolean).length).reduce((a, b) => a + b, 0) : 0;
+  }
+  function renderArticle() {
+    if (!art || (!art.title && !art.sections.length)) {
+      articleEl.innerHTML = '<div class="empty">Your article will take shape here, section by section, as the agent writes.</div>';
+      $("wordmeta").textContent = "";
+      return;
+    }
+    articleEl.innerHTML = "";
+    if (!art.published) {
+      const d = document.createElement("span");
+      d.className = "drafting-tag"; d.textContent = "drafting";
+      articleEl.appendChild(d);
+    }
+    const t = document.createElement("div");
+    t.className = "a-title"; t.textContent = art.title || "Untitled draft";
+    articleEl.appendChild(t);
+    if (art.subtitle) {
+      const st = document.createElement("div");
+      st.className = "a-subtitle"; st.textContent = art.subtitle;
+      articleEl.appendChild(st);
+    }
+    const wc = wordCount();
+    const by = document.createElement("div");
+    by.className = "a-byline";
+    by.innerHTML = '<div class="av">A</div><div><b>The Agent</b> for you<br>' + Math.max(1, Math.round(wc / 225)) + " min read &middot; " + wc + " words</div>";
+    articleEl.appendChild(by);
+
+    const body = document.createElement("div");
+    body.className = "a-body";
+    let html = "";
+    for (const s of art.sections) {
+      if (s.heading) html += "<h2>" + s.heading.replace(/</g, "&lt;") + "</h2>";
+      html += marked.parse(s.md);
+    }
+    body.innerHTML = html;
+    articleEl.appendChild(body);
+
+    if (art.tags.length) {
+      const tg = document.createElement("div");
+      tg.className = "a-tags";
+      art.tags.slice(0, 5).forEach(x => {
+        const sp = document.createElement("span"); sp.textContent = x; tg.appendChild(sp);
+      });
+      articleEl.appendChild(tg);
+    }
+    $("wordmeta").textContent = "(" + wc + " words)";
+  }
+
+  // ---------- OpenAI ----------
+  async function openai(key, body, signal) {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify(body),
+      signal
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err.error && err.error.message) || ("HTTP " + res.status));
+    }
+    return res.json();
+  }
+
+  async function execWebSearch(key, query, signal) {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        input: "Search the web and return current facts, statistics, examples, or expert takes relevant to this query, with source URLs. Be concise.\n\nQuery: " + query,
+        tools: [{ type: "web_search_preview" }]
+      }),
+      signal
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err.error && err.error.message) || ("search failed: HTTP " + res.status));
+    }
+    const data = await res.json();
+    let text = "";
+    for (const item of data.output || []) {
+      if (item.type === "message") {
+        for (const c of item.content || []) {
+          if (c.type === "output_text") text += c.text;
+        }
+      }
+    }
+    return text || "No results returned.";
+  }
+
+  async function execCritique(key, fullMd, style, reader, target, minScore, signal) {
+    const data = await openai(key, {
+      model: "gpt-4o-mini",
+      messages: [{
+        role: "user",
+        content:
+          "You are a demanding Medium editor. Score this article draft 1-10 and give specific, actionable feedback.\n" +
+          "Judge: (1) title and subtitle pull, (2) opening hook in the first 3 paragraphs, (3) structure and flow between sections, " +
+          "(4) depth and concreteness for the intended reader: " + (reader || "general tech-curious reader") + ", " +
+          "(5) fit to the intended style: " + style + ", (6) length vs target of about " + target + " words, " +
+          "(7) ending strength, (8) whether it reads like generic AI content.\n" +
+          "Only award " + minScore + "+ if you would genuinely stop scrolling for this piece.\n" +
+          "Respond in this exact format:\nSCORE: n/10\nFEEDBACK: ...\n\nDRAFT:\n" + fullMd
+      }]
+    }, signal);
+    return data.choices[0].message.content;
+  }
+
+  // ---------- tools ----------
+  const toolSchemas = [
+    { type: "function", function: {
+      name: "web_search",
+      description: "Search the web for facts, statistics, examples, or sources to ground the article. Optional; use when the piece benefits from real evidence.",
+      parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } },
+    { type: "function", function: {
+      name: "set_outline",
+      description: "Set or update the working title, subtitle, and planned section headings before or during drafting. The reader sees the title immediately.",
+      parameters: { type: "object", properties: {
+        working_title: { type: "string" },
+        subtitle: { type: "string" },
+        planned_sections: { type: "array", items: { type: "string" } }
+      }, required: ["working_title"] } } },
+    { type: "function", function: {
+      name: "write_section",
+      description: "Append one section of the article. It renders on the reader's page immediately. Write in markdown. Use an empty heading for the opening section (before any subheading).",
+      parameters: { type: "object", properties: {
+        heading: { type: "string", description: "Section subheading, or empty string for the opening" },
+        markdown: { type: "string", description: "The section body in markdown" }
+      }, required: ["markdown"] } } },
+    { type: "function", function: {
+      name: "rewrite_section",
+      description: "Replace an existing section by its number (1-based, in page order) with new heading and markdown. Use this to act on critique.",
+      parameters: { type: "object", properties: {
+        section_number: { type: "integer" },
+        heading: { type: "string" },
+        markdown: { type: "string" }
+      }, required: ["section_number", "markdown"] } } },
+    { type: "function", function: {
+      name: "read_full_draft",
+      description: "Read the complete assembled article as it currently stands, including title and all sections in order.",
+      parameters: { type: "object", properties: {} } } },
+    { type: "function", function: {
+      name: "get_critique",
+      description: "Send the current full draft to an independent Medium editor. Returns a 1-10 score with feedback. Use it before publishing and after major rewrites.",
+      parameters: { type: "object", properties: {} } } },
+    { type: "function", function: {
+      name: "publish",
+      description: "Finalize and publish the article. Only call when the editor has scored it at the quality bar or your budget is ending. Ends the run.",
+      parameters: { type: "object", properties: {
+        final_title: { type: "string" },
+        final_subtitle: { type: "string" },
+        tags: { type: "array", items: { type: "string" }, description: "3-5 Medium tags" }
+      }, required: ["final_title"] } } }
+  ];
+
+  // ---------- agent loop ----------
+  async function run() {
+    const key = $("apiKey").value.trim();
+    const topic = $("topic").value.trim();
+    const reader = $("reader").value.trim();
+    const style = $("style").value;
+    const target = $("length").value;
+    const model = $("model").value;
+    const maxSteps = parseInt($("maxSteps").value, 10);
+    const minScore = parseInt($("minScore").value, 10);
+    const useSearch = $("useSearch").checked;
+
+    if (!key) { alert("Enter your OpenAI API key."); return; }
+    if (!topic) { alert("Write a brief for the article."); return; }
+
+    controller = new AbortController();
+    const signal = controller.signal;
+    runBtn.disabled = true;
+    stopBtn.style.display = "block";
+    marginEl.innerHTML = "";
+    art = freshArt();
+    renderArticle();
+    resetCounts();
+
+    const systemPrompt =
+      "You are an autonomous longform writing agent producing one excellent Medium article from the user's brief.\n\n" +
+      "You decide your own process. A strong pattern: set an outline with a working title, " +
+      (useSearch ? "search for real facts and examples where the piece needs evidence, " : "") +
+      "write the article section by section (each write_section call renders live on the reader's page), read the full draft, send it to the editor with get_critique, rewrite weak sections, and publish once the editor scores it at least " + minScore + "/10.\n\n" +
+      "Article requirements:\n" +
+      "- Style: " + style + ". Target reader: " + (reader || "general tech-curious reader") + ". Target length: about " + target + " words total.\n" +
+      "- A magnetic title and a subtitle that adds information rather than repeating the title.\n" +
+      "- The opening section must hook within three paragraphs. No 'In today's fast-paced world' openings, no throat-clearing.\n" +
+      "- Concrete examples, specifics, and numbers over vague generalities. Never invent statistics; only use numbers from your searches or the brief.\n" +
+      "- Markdown formatting where it helps: bold sparingly, blockquotes for key lines, code blocks only if the topic is technical.\n" +
+      "- American English. No em dashes anywhere. Sentence-case headings.\n" +
+      "- End with a strong closing thought, not a summary that repeats the sections.\n\n" +
+      "Rules of operation:\n" +
+      "- Before each tool call, state your reasoning in one or two short sentences.\n" +
+      "- Keep individual sections between 100 and 350 words so the piece stays scannable.\n" +
+      "- Do not publish a draft the editor has not scored at " + minScore + " or above, unless your step budget is about to run out.\n" +
+      "- You have a budget of " + maxSteps + " steps. You will be warned near the end. Always finish by calling publish.";
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "Article brief: " + topic }
+    ];
+
+    try {
+      let finished = false;
+      while (!finished) {
+        if (counts.step >= maxSteps) {
+          mn("budget", "err", "Step budget exhausted. Forcing publication of the current draft.");
+          messages.push({ role: "user", content: "STOP. Budget exhausted. Call publish NOW with the best final title, subtitle, and tags for the draft as it stands." });
+        } else if (counts.step === maxSteps - 3) {
+          messages.push({ role: "user", content: "Warning: only 3 steps remain. Wrap up and publish soon." });
+        }
+        bump("step");
+
+        const data = await openai(key, {
+          model,
+          messages,
+          tools: toolSchemas,
+          tool_choice: counts.step > maxSteps ? { type: "function", function: { name: "publish" } } : "auto",
+          parallel_tool_calls: false
+        }, signal);
+        const msg = data.choices[0].message;
+        messages.push(msg);
+
+        if (msg.content && msg.content.trim()) mn("agent thinking", "think", msg.content.trim());
+
+        const calls = msg.tool_calls || [];
+        if (!calls.length) {
+          messages.push({ role: "user", content: "Continue using your tools, or call publish if the article is done." });
+          continue;
+        }
+
+        for (const call of calls) {
+          let args = {};
+          try { args = JSON.parse(call.function.arguments || "{}"); } catch (e) {}
+          const name = call.function.name;
+          let result = "";
+
+          if (name === "web_search") {
+            if (!useSearch) {
+              result = "Web search is disabled for this run. Proceed without it.";
+              mn("web_search", "err", "Blocked: search disabled by user.");
+            } else {
+              const box = mn("web_search", "tool", '"' + (args.query || "") + '"', true);
+              try {
+                result = await execWebSearch(key, args.query || topic, signal);
+                settle(box);
+                mn("results", "result", result.length > 320 ? result.slice(0, 320) + " [truncated here, full text given to agent]" : result);
+              } catch (e) {
+                if (e.name === "AbortError") throw e;
+                settle(box);
+                result = "Search error: " + e.message + ". Proceed without it or retry.";
+                mn("error", "err", result);
+              }
+            }
+          } else if (name === "set_outline") {
+            art.title = args.working_title || art.title;
+            if (args.subtitle) art.subtitle = args.subtitle;
+            renderArticle();
+            result = "Outline set. Title and subtitle are now visible to the reader.";
+            mn("set_outline", "tool", (args.working_title || "") + (args.planned_sections ? "\nPlanned: " + args.planned_sections.join(" / ") : ""));
+          } else if (name === "write_section") {
+            bump("section");
+            art.sections.push({ heading: args.heading || "", md: args.markdown || "" });
+            renderArticle();
+            result = "Section " + art.sections.length + " added and rendered. Total word count is now " + wordCount() + " (target ~" + target + ").";
+            mn("write_section", "tool", "Section " + art.sections.length + (args.heading ? ": " + args.heading : " (opening)") + " written to the page.");
+          } else if (name === "rewrite_section") {
+            const i = (args.section_number || 0) - 1;
+            if (i >= 0 && i < art.sections.length) {
+              art.sections[i] = { heading: args.heading !== undefined ? args.heading : art.sections[i].heading, md: args.markdown || "" };
+              renderArticle();
+              result = "Section " + (i + 1) + " rewritten. Total word count is now " + wordCount() + ".";
+              mn("rewrite_section", "tool", "Section " + (i + 1) + " replaced on the page.");
+            } else {
+              result = "No section " + args.section_number + " exists. There are " + art.sections.length + " sections.";
+              mn("error", "err", result);
+            }
+          } else if (name === "read_full_draft") {
+            result = articleMarkdown() || "The draft is empty.";
+            mn("read_full_draft", "tool", "Read " + wordCount() + " words back into context.");
+          } else if (name === "get_critique") {
+            bump("critique");
+            const box = mn("critique", "tool", "Sending the full draft to the editor (gpt-4o-mini)", true);
+            try {
+              result = await execCritique(key, articleMarkdown(), style, reader, target, minScore, signal);
+              settle(box);
+              mn("editor verdict", "critic", result);
+            } catch (e) {
+              if (e.name === "AbortError") throw e;
+              settle(box);
+              result = "Editor unavailable: " + e.message + ". Use your own judgment.";
+              mn("error", "err", result);
+            }
+          } else if (name === "publish") {
+            art.title = args.final_title || art.title || "Untitled";
+            if (args.final_subtitle) art.subtitle = args.final_subtitle;
+            art.tags = Array.isArray(args.tags) ? args.tags : [];
+            art.published = true;
+            renderArticle();
+            result = "Published.";
+            finished = true;
+            mn("published", "final", "Published after " + counts.step + " steps: " + counts.section + " sections written, " + counts.critique + " editor reviews, " + wordCount() + " words.");
+          } else {
+            result = "Unknown tool.";
+          }
+
+          messages.push({ role: "tool", tool_call_id: call.id, content: result });
+          if (finished) break;
+        }
+      }
+    } catch (e) {
+      if (e.name === "AbortError") {
+        mn("stopped", "err", "Run stopped by user. The draft so far remains on the page.");
+      } else {
+        mn("error", "err", e.message);
+      }
+    } finally {
+      runBtn.disabled = false;
+      stopBtn.style.display = "none";
+      controller = null;
+    }
+  }
+
+  runBtn.addEventListener("click", run);
+  stopBtn.addEventListener("click", () => controller && controller.abort());
+
+  $("copyBtn").addEventListener("click", async () => {
+    const md = articleMarkdown();
+    if (!md) return;
+    await navigator.clipboard.writeText(md);
+    $("copyBtn").textContent = "Copied";
+    setTimeout(() => $("copyBtn").textContent = "Copy markdown", 1500);
+  });
+
+  $("dlBtn").addEventListener("click", () => {
+    const md = articleMarkdown();
+    if (!md) return;
+    const blob = new Blob([md], { type: "text/markdown" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "medium-article.md";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+</body>
+</html>
